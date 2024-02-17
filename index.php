@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (isset($_SESSION['user'])) {
+if (isset($_SESSION["user"])) {
   header("Location: http://localhost/xampp/MARS/myPrj/welcome.php");
   exit();
 }
@@ -52,7 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>
-    home
+    Login
   </title>
 
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
@@ -76,7 +76,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <body>
 
-
+  <!-- <?php
+  require_once 'navbar.php';
+  ?> -->
   <div class=" mx-auto mt-4 " style="max-width:500px;">
     <h2 class="text-center">Login</h2>
     <?php if (isset($error_msg)): ?>
@@ -104,3 +106,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </body>
 
 </html>
+
+
+
+
