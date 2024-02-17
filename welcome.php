@@ -270,8 +270,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
     // Insert image into image table
     $table_name = "image";
     $year_id = $_POST["year_id"];
+    $album_id = $_POST["album_id"];
+    $albub_images = $_POST["album_image_name"];
     $data = ["album_id" => $_POST['album_id'], "name" => $_POST["album_image_name"]];
 
+    print_r($_POST);
+    print_r($_FILES);
+    exit;
     $inserted_album_image_id = createOne($conn, $table_name, $data);
     if (!$inserted_album_image_id) {
       echo "Failed to create album image  <br>";
@@ -430,15 +435,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
       </select>
     </div>
 
-    <!-- <div class="mb-3">
-      <label for="album_image" class="form-label">Image</label>
-      <input type="file" class="form-control" id="album_image" name="album_image" required>
-
-    </div>
-    <div class="mb-3">
-      <label for="album_image_name" class="form-label">Image Name</label>
-      <input type="text" class="form-control" id="album_image_name" name="album_image_name" required>
-    </div> -->
 
 
     <div class=" mb-3 p-1">
