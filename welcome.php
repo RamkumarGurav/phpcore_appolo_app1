@@ -1,9 +1,8 @@
 <?php
+// Start the session to access session variables
 session_start();
 
-
-
-// Check if user is logged in, if not redirect to login page
+// Check if the user is not logged in, redirect to the login page
 if (!isset($_SESSION['user'])) {
   header("Location: http://localhost/xampp/MARS/myPrj");
   exit();
@@ -11,10 +10,25 @@ if (!isset($_SESSION['user'])) {
 
 // Logout logic
 if (isset($_POST['logout'])) {
+  // Destroy the session and redirect to the login page
+
+
+
   session_destroy();
+
+  $_SESSION["toast_message"] = "Successfully Logged Out";
+  $_SESSION["toast_type"] = "text-bg-success";
   header("Location: http://localhost/xampp/MARS/myPrj");
   exit();
 }
+
+// Check if the session variable for the album form is not set
+if (!isset($_SESSION["isAddAlbumFormOpen"])) {
+  // If not set, initialize it to 1
+  $_SESSION["isAddAlbumFormOpen"] = 1;
+}
+
+
 
 // Database connection
 $servername = "localhost";
@@ -23,25 +37,20 @@ $server_password = "";
 $dbname = "appolo_album_db";
 
 try {
+  // Create a PDO connection
   $conn = new PDO("mysql:host=$servername;dbname=$dbname", $server_username, $server_password);
   $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-  // Fetch years and albums from database
-  $sql1 = "SELECT * FROM year";
-  $stmt1 = $conn->prepare($sql1);
-  $result1 = $stmt1->execute();
-  $years = $stmt1->fetchAll(PDO::FETCH_ASSOC);
-
-  $sql2 = "SELECT * FROM album";
-  $stmt2 = $conn->prepare($sql2);
-  $result2 = $stmt2->execute();
-  $albums = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+  // Retrieve years and albums data from the database
+  $years = findAll($conn, "year");
+  $albums = findAll($conn, "album");
+  // Convert albums data to JSON for JavaScript usage
   $json_albums = json_encode($albums);
-  // echo "$json_albums <br>";
-} catch (PDOException $e) {
-  echo $sql . "<br>" . $e->getMessage();
-}
 
+} catch (PDOException $e) {
+  // Handle PDO exceptions
+  echo "{$e->getMessage()} ";
+}
 
 //{--------------HELPERS--------------
 
@@ -211,108 +220,180 @@ function findOneByColumnName($conn, $table_name, $columnName, $columnValue)
 
 }
 
-
+function findAll($conn, $table_name)
+{
+  $sql = "SELECT * FROM $table_name";
+  $stmt = $conn->prepare($sql);
+  $result = $stmt->execute();
+  if (!$result) {
+    echo "failed to fetch records from table $table_name";
+    exit;
+  }
+  return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 //--------------------------------------------------}
 
-// Insert album  logic
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album'])) {
+//{--------------INSERT ALBUM LOGIC--------------
+if (isset($_POST['add_album'])) {
   try {
-    // Insert image into image table
+    // Define the table name
     $table_name = "album";
+
+    // Retrieve data from the form submission
     $year_id = $_POST['year_id'];
     $album_name = $_POST['album_name'];
+
+    // Prepare the data to be inserted into the database
     $data = ["year_id" => $year_id, "name" => $album_name];
 
+    // Call the createOne function to insert data into the album table
     $album_id = createOne($conn, "album", $data);
-    if ($album_id) {
 
-      // Retrieve the uploaded image details
+    // Check if the album was successfully inserted
+    if ($album_id) {
+      // Retrieve the uploaded cover image details
       $file_name = $_FILES['cover_image']['name'];
       $file_tmp = $_FILES['cover_image']['tmp_name'];
+
+      // Retrieve the fiscal year from the year table based on the year_id
       $yearRecord = findOneByColumnName($conn, "year", "id", $year_id);
 
+      // Initialize fiscal year variable
       $fy = null;
+
+      // Check if the fiscal year record exists
       if ($yearRecord) {
+        // Assign the fiscal year to the variable
         $fy = $yearRecord["fiscal_year"];
       }
 
+      // Move the uploaded cover image to the appropriate folder
       $movedImageName = moveImageToFolder($album_id, $fy, $file_name, $file_tmp, "uploads", "cover_images");
 
+      // Prepare data for updating the album table with the cover image name
       $data = ["cover_image" => $movedImageName];
 
+      // Update the album table with the cover image name
       $isTableUpdated = updateByColumnName($conn, "album", "id", $album_id, $data);
 
+      // Check if the table update was successful
       if (!$isTableUpdated) {
-
+        // Display error message if the table update failed
         echo "failed to update the album table <br>";
       }
 
+      // Set the session variable to indicate that the add album form is open
+      $_SESSION["isAddAlbumFormOpen"] = 1;
 
+      $_SESSION["toast_message"] = "Successfully added the Album";
+      $_SESSION["toast_type"] = "text-bg-success";
 
-
-
-      header("Location: welcome.php");
+      // Redirect the user to the welcome page after successful album creation
+      header("Location: http://localhost/xampp/MARS/myPrj/welcome.php");
       exit();
     } else {
-      // Set error message
-      $toast = ["message" => "Successfully Added Album Image", "toastType" => "text-bg-success"];
+      // Display error message if album creation failed
+      echo "failed to create album  <br>";
     }
   } catch (PDOException $e) {
-    echo $sql . "<br>" . $e->getMessage();
+    // Catch any PDO exceptions and display error message
+    echo $e->getMessage();
   }
 }
+//--------------------------------------------------}
 
-// Insert album photo logic
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
-  // $toast = null;
+//{--------------INSERT ALBUM IMAGE LOGIC--------------
+if (isset($_POST['add_album_photo'])) {
   try {
-    // Insert image into image table
+    // Define the table name for storing images
     $table_name = "image";
-    $year_id = $_POST["year_id"];
-    $album_id = $_POST["album_id"];
-    $albub_images = $_POST["album_image_name"];
-    $data = ["album_id" => $_POST['album_id'], "name" => $_POST["album_image_name"]];
 
-    print_r($_POST);
-    print_r($_FILES);
-    exit;
-    $inserted_album_image_id = createOne($conn, $table_name, $data);
-    if (!$inserted_album_image_id) {
-      echo "Failed to create album image  <br>";
-      exit;
+    // Retrieve data from the form submission
+    $data1 = $_POST; // Contains album data
+    $data2 = $_FILES; // Contains image files
+
+    // Initialize an array to store formatted data for each image
+    $formattedData = array();
+
+    // Iterate over album image names and format data
+    foreach ($data1['album_image_name'] as $index => $imageName) {
+      // Format data for each image
+      $formattedData[] = array(
+        'year_id' => $data1['year_id'], // Year ID associated with the album
+        'album_id' => $data1['album_id'], // Album ID where the image belongs
+        'album_image_name' => $imageName, // Name of the image
+        'album_image' => array(
+          'name' => $data2['album_image']['name'][$index], // Original filename of the image
+          'type' => $data2['album_image']['type'][$index], // Mime type of the image
+          'tmp_name' => $data2['album_image']['tmp_name'][$index], // Temporary filename of the image
+          'error' => $data2['album_image']['error'][$index], // Error code of the image upload
+          'size' => $data2['album_image']['size'][$index] // Size of the image
+        )
+      );
     }
 
+    // Iterate over each formatted image data
+    foreach ($formattedData as $item) {
+      // Prepare data for creating a new image record without the image itself
+      $dataForImageWithoutImage = ["album_id" => $item["album_id"], "name" => $item["album_image_name"]];
 
-    // Retrieve the uploaded image details
-    $file_name = $_FILES['album_image']['name'];
-    $file_tmp = $_FILES['album_image']['tmp_name'];
-    $yearRecord = findOneByColumnName($conn, "year", "id", $year_id);
+      // Retrieve year ID and image details from the formatted data
+      $year_id = $item["year_id"];
+      $file_name = $item['album_image']['name'];
+      $file_tmp = $item['album_image']['tmp_name'];
 
-    $fy = null;
-    if ($yearRecord) {
-      $fy = $yearRecord["fiscal_year"];
+      // Create a new image record in the database without the actual image
+      $inserted_album_image_id = createOne($conn, $table_name, $dataForImageWithoutImage);
+
+      // Check if the image record creation was successful
+      if (!$inserted_album_image_id) {
+        // Display error message if image creation failed
+        echo "Failed to create album image  <br>";
+        exit;
+      }
+
+      // Retrieve the fiscal year from the year table based on the year_id
+      $yearRecord = findOneByColumnName($conn, "year", "id", $year_id);
+
+      // Initialize fiscal year variable
+      $fy = null;
+
+      // Check if the fiscal year record exists
+      if ($yearRecord) {
+        // Assign the fiscal year to the variable
+        $fy = $yearRecord["fiscal_year"];
+      }
+
+      // Move the uploaded image to the appropriate folder
+      $movedImageName = moveImageToFolder($inserted_album_image_id, $fy, $file_name, $file_tmp, "uploads", "album_images");
+
+      // Prepare data for updating the image table with the actual image name
+      $dataForUpdate = ["album_image" => $movedImageName];
+
+      // Update the image table with the actual image name
+      $isTableUpdated = updateByColumnName($conn, "image", "id", $inserted_album_image_id, $dataForUpdate);
+
+      // Check if the table update was successful
+      if (!$isTableUpdated) {
+        // Display error message if the table update failed
+        echo "failed to update the image with id:$inserted_album_image_id <br>";
+      }
     }
 
-    $movedImageName = moveImageToFolder($inserted_album_image_id, $fy, $file_name, $file_tmp, "uploads", "album_images");
-
-    $data = ["album_image" => $movedImageName];
-
-    $isTableUpdated = updateByColumnName($conn, "image", "id", $inserted_album_image_id, $data);
-
-    if (!$isTableUpdated) {
-
-      echo "failed to update the album table <br>";
-    }
-
-    header("Location: welcome.php");
+    // Set the session variable to indicate that the add album form is closed
+    $_SESSION["isAddAlbumFormOpen"] = 0;
+    $_SESSION["toast_message"] = "Successfully added the Album Image ";
+    $_SESSION["toast_type"] = "text-bg-success";
+    // Redirect the user to the welcome page after successfully adding album photos
+    header("Location: http://localhost/xampp/MARS/myPrj/welcome.php");
     exit();
-
-
   } catch (PDOException $e) {
+    // Catch any PDO exceptions and display error message
     echo $sql . "<br>" . $e->getMessage();
   }
 }
+//--------------------------------------------------}
 ?>
 
 <!DOCTYPE html>
@@ -346,15 +427,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
 
 <body class="pb-4" style="min-height:100vh;">
 
-  <!-- <?php require_once 'navbar.php' ?> -->
+  <?php require_once 'navbar.php' ?>
 
-  <div class="container mx-auto mt-4">
+  <!-- <div class="container mx-auto mt-4">
     <h2>Welcome,
       <?= $_SESSION['user']['name'] ?>
     </h2>
     <form action="welcome.php" method="post">
       <button type="submit" class="btn btn-primary" name="logout">Logout</button>
-    </form>
+    </form> -->
 
 
   </div>
@@ -364,10 +445,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
     <button id="addAlbumImageBtn" class="add-album-image btn btn-warning ">+ Add Album Image</button>
   </div>
 
-
-  <form id="addAlbumForm" action="welcome.php" method="post" enctype="multipart/form-data"
-    class="container d-block mx-auto mt-4 border shadow px-5 py-5 position-relative " style="max-width:600px;">
+  <!-- if your form logic in the same page don't use mention the action attribute in the form -->
+  <form id="addAlbumForm" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post"
+    enctype="multipart/form-data"
+    class="container <?= $_SESSION["isAddAlbumFormOpen"] === 1 ? "d-block" : "d-none " ?> mx-auto mt-4 border shadow px-5 py-5 position-relative "
+    style="max-width:750px;">
     <h3 class="text-muted text-center">Add Album </h3>
+
     <button id="albumCloseBtn" class=" btn fw-bold  rounded position-absolute p-0" style="top:10px;right:20px;"><i
         class="fa-solid fa-xmark"></i></button>
     <div class="mb-3">
@@ -390,8 +474,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
     </div>
     <div class="mb-3">
       <label for="cover_image" class="form-label">Cover Image</label>
-      <input type="file" class="form-control" id="cover_image" name="cover_image" required>
-      <!-- <div id="coverImageHelp" class="form-text">Choose a cover image for your album.</div> -->
+      <div class="d-flex ">
+        <input type="file" class="form-control me-2" id="cover_image" name="cover_image" style="width:300px;" required>
+        <div id="coverImagePreviewContainer" class="d-flex justify-content-center  align-items-center  "
+          style="height:38px;width:41px;"></div>
+      </div>
 
     </div>
 
@@ -402,9 +489,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
     <button type="submit" class="btn btn-primary" name="add_album">Submit</button>
   </form>
 
-  <form id="addAlbumImageForm" action="welcome.php" method="post" enctype="multipart/form-data"
-    class="container d-none mx-auto  border my-4 shadow px-5 py-3 position-relative " style="max-width:600px;">
+
+
+  <!-- if your form logic in the same page don't use mention the action attribute in the form -->
+  <form id="addAlbumImageForm" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post"
+    enctype="multipart/form-data"
+    class="container <?= $_SESSION["isAddAlbumFormOpen"] === 1 ? "d-none" : "d-block " ?> mx-auto  border my-4 shadow px-5 py-3 position-relative "
+    style="max-width:750px;">
     <h3 class="text-muted text-center">Add Album Image</h3>
+
     <button id="albumImageCloseBtn" class=" btn btn-white fw-bold  rounded position-absolute p-0"
       style="top:10px;right:20px;"><i class="fa-solid fa-xmark"></i></button>
     <div class="mb-3">
@@ -441,18 +534,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
       <p class="">Upload Images</p>
       <div id="imageUploadFields">
         <div class="mb-3 image-upload-field">
-          <div class="d-flex align-items-center">
-            <div class="me-auto">
+          <div class="d-flex align-items-center justify-content-between ">
+            <div class="">
               <input type="text" class="form-control" name="album_image_name[]" required placeholder="Image name">
             </div>
-            <div class="ms-3">
-              <input type="file" class="form-control" name="album_image[]" required>
+            <div class=" d-flex gap-2 align-items-center  justify-content-between ">
+              <input type="file" class="form-control" name="album_image[]" class="album_image1" required>
+              <div class="albumImagePreviewContainer  d-flex align-items-center  justify-content-center "
+                style="width:41px;height:41px;"></div>
             </div>
-            <button type="button" class="btn btn-danger delete-image-field ms-3"><i
+
+            <button type=" button" class="btn btn-danger delete-image-field ms-3"><i
                 class="fa-solid fa-trash"></i></button>
           </div>
         </div>
-
       </div>
       <div type="button" id="addImageButton" class="border text-muted text-center rounded-pill">Add New Line</div>
     </div>
@@ -464,54 +559,72 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
 
 
   <!-- Notification Toast -->
-  <?php if (isset($toast)): ?>
-
+  <?php if (isset($_SESSION["toast_message"])): ?>
     <div id="myToast"
-      class="toast fade   <?= $toast["toastType"] ?? "text-bg-primary" ?>  align-items-center mx-auto  position-fixed   border-0 z-2"
+      class="toast fade   <?= $_SESSION["toast_type"] ?? "text-bg-primary" ?>  align-items-center mx-auto  position-fixed   border-0 z-2"
       style="bottom:40px;right:10px;min-width:300px;" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="d-flex">
         <div class="toast-body w-100 d-flex justify-content-evenly">
-          <?= $toast["message"] ?>
+          <?= $_SESSION["toast_message"] ?>
           <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
             aria-label="Close"></button>
         </div>
       </div>
 
     </div>
+
+    <?php $_SESSION["toast_message"] = null;
+    $_SESSION["toast_type"] = null;
+    ?>
   <?php endif; ?>
+
+
+
 
   <script>
     // Accessing the $json_albums variable inside JavaScript
-    var albumsData = <?php echo $json_albums; ?>;
-
-
-
-    // Logging the albums data
-    console.log(albumsData);
-
+    var albumsData = <?php echo $json_albums ?>;
 
     $(document).ready(function () {
+
       // Event listener for the year select element
       $("#year").change(function () {
         // Get the selected year_id
         var year_id = $(this).val();
 
+        // Filter albums based on the selected year_id
         var filteredAlbums = albumsData.filter((album) => album.year_id == year_id);
 
+        // Log the filtered albums to the console
         console.log(filteredAlbums);
 
-
-        // Clear existing options
+        // Clear existing options in the album_id select element
         $("#album_id").empty();
 
-        // Add new options based on the response
+        // Add new options based on the filtered albums
         $("#album_id").append('<option value=""></option>');
         $.each(filteredAlbums, function (index, album) {
           $("#album_id").append('<option value="' + album.id + '">' + album.name + '</option>');
         });
-
       });
 
+      // Add event listener for image input change
+      $('#cover_image').change(function (event) {
+        // Get the selected file
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const imagePreviewContainer = $('#coverImagePreviewContainer');
+            const imgElement = $('<img>').attr('src', e.target.result)
+              .addClass('img-fluid ')
+              .css({ width: '38px', height: '38px', objectFit: 'cover' });
+            imagePreviewContainer.empty(); // Clear previous image previews
+            imagePreviewContainer.append(imgElement);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
 
       // Show Add Album Form
       $("#addAlbumBtn").click(function () {
@@ -527,8 +640,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
         $("#addAlbumForm").addClass("d-none");
       });
 
-
-      // Show Add Album Form
+      // Show Add Album Image Form
       $("#addAlbumImageBtn").click(function () {
         $("#addAlbumImageForm").addClass("d-block");
         $("#addAlbumImageForm").removeClass("d-none");
@@ -542,9 +654,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
         $("#addAlbumImageForm").addClass("d-none");
       });
 
-
-
-
       // Add Image button click event
       $("#addImageButton").click(function () {
         // Clone the first image upload field and append it to the imageUploadFields div
@@ -553,6 +662,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
         // Clear the input values in the cloned field
         clonedField.find("input[type='text']").val("");
         clonedField.find("input[type='file']").val("");
+        // Reset image previews in the cloned field
+        clonedField.find("img").attr("src", "").remove(); // Remove the src attribute to clear the image preview
         // Add delete button to the cloned field
         clonedField.find(".delete-image-field").removeClass("d-none");
       });
@@ -566,11 +677,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_album_photo'])) {
         }
       });
 
+      // Add event listener for image input change in Add Album Image Form
+      $(document).on('change', '#addAlbumImageForm input[type="file"]', function (event) {
+        const fileInput = $(this); // Get the file input element
+        // Get the selected file
+        const file = $(this)[0].files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const imagePreviewContainer = fileInput.next('.albumImagePreviewContainer'); // Get the immediate sibling with class 'albumImagePreviewContainer'
+            const imgElement = $('<img>').attr('src', e.target.result)
+              .addClass('img-fluid')
+              .css({ width: '38px', height: '38px', objectFit: 'cover' });
+            imagePreviewContainer.empty(); // Clear previous image previews
+            imagePreviewContainer.append(imgElement);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+
+
+      // Code for Toast notificaions
+
+      $("#myToast").toast({
+        animation: true
+      });
+
+      // Get the toast element
+      var toastElement = $("#myToast");
+      // Add "hide" class to the toast after 2 seconds
+      setTimeout(function () {
+        toastElement.addClass("show");
+      }, 700);
+      setTimeout(function () {
+        toastElement.addClass("hide");
+        toastElement.removeClass("show")
+      }, 4500);
+
 
 
     });
-
   </script>
+
 </body>
 
 </html>

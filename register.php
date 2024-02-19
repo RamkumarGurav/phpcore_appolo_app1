@@ -1,9 +1,11 @@
 <?php
 session_start();
+
 if (isset($_SESSION["user"])) {
   header("Location: http://localhost/xampp/MARS/myPrj/welcome.php");
   exit();
 }
+
 
 
 //{--------------DB DETAILS--------------
@@ -14,18 +16,64 @@ $dbname = "appolo_album_db";
 //--------------------------------------------------}
 
 
-//{--------------HELPERS--------------
-function findUser($conn, $table_name, $email, $password)
+
+
+
+
+
+//{--------------DATABASA ACTIONS--------------
+
+
+
+function createOne($conn, $table_name, $data)
 {
 
-  $sql = "SELECT * FROM $table_name where email = :email_value AND password = :password_value";
+  $columns = implode(",", array_keys($data));
+  $placeholders = implode(",", array_fill(0, count($data), "?"));
+  $sql = "INSERT INTO $table_name ($columns) VALUES($placeholders)";
+
   $stmt = $conn->prepare($sql);
 
+  $i = 1;
+  foreach ($data as $value) {
+    $type = PDO::PARAM_STR; // Default type is string
+    if (is_bool($value)) {
+      $type = PDO::PARAM_BOOL;
+    } elseif (is_int($value)) {
+      $type = PDO::PARAM_INT;
+    } elseif (is_null($value)) {
+      $type = PDO::PARAM_NULL;
+    }
+    $stmt->bindValue($i, $value, $type);
+    $i++;
+  }
 
-  $stmt->bindValue(":email_value", $email, PDO::PARAM_STR);
-  $stmt->bindValue(":password_value", $password, PDO::PARAM_STR);
+  if ($stmt->execute()) {
+    return $conn->lastInsertId();
+  } else {
+    return false;
+  }
+}
 
 
+
+
+
+function findOneByColumnName($conn, $table_name, $columnName, $columnValue)
+{
+
+  $sql = "SELECT * FROM $table_name where $columnName=:c_value";
+  $stmt = $conn->prepare($sql);
+
+  $type = PDO::PARAM_STR; // Default type is string
+  if (is_bool($columnValue)) {
+    $type = PDO::PARAM_BOOL;
+  } elseif (is_int($columnValue)) {
+    $type = PDO::PARAM_INT;
+  } elseif (is_null($columnValue)) {
+    $type = PDO::PARAM_NULL;
+  }
+  $stmt->bindValue(":c_value", $columnValue, $type);
 
   if ($stmt->execute()) {
     return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -35,6 +83,8 @@ function findUser($conn, $table_name, $email, $password)
   }
 
 }
+//--------------------------------------------------}
+
 
 
 
@@ -44,30 +94,31 @@ try {
   $conn = new PDO("mysql:host=$servername;dbname=$dbname", $server_username, $server_password);
   $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-  //{--------------LOGIN LOGIC--------------
 
-  if (isset($_POST["login"])) {
 
+
+
+
+  //{--------------REGISTER--------------
+  if (isset($_POST["register"])) {
+
+    $name = $_POST['name'];
     $email = $_POST['email'];
     $password = md5($_POST['password']);
 
+    $data = ["name" => $name, "email" => $email, "password" => $password];
 
 
-    $user = findUser($conn, "user", $email, $password);
+    $inserted_id = createOne($conn, "user", $data);
 
-
-    if (!$user) {
-      // $error_msg = "Invalid email or password. Please try again.";
-      $_SESSION["toast_message"] = "Invalid email or password. Please try again.";
-      $_SESSION["toast_type"] = "text-bg-danger";
-      // Redirect the user to the welcome page after successfully adding album photos
-      header("Location: http://localhost/xampp/MARS/myPrj/index.php");
-      exit();
+    if (!$inserted_id) {
+      echo "Unable to Register user <br>";
+      exit;
     }
 
-
+    $user = findOneByColumnName($conn, "user", 'id', $inserted_id);
     $_SESSION['user'] = ["name" => $user["name"], "email" => $user["email"]];
-    $_SESSION["toast_message"] = "Successfully LoggedIn";
+    $_SESSION["toast_message"] = "Successfully Registered";
     $_SESSION["toast_type"] = "text-bg-success";
 
     // Redirect the user to the welcome page after successfully adding album photos
@@ -75,22 +126,8 @@ try {
     exit();
 
 
-
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  //--------------------------------------------------}
 
 
 } catch (PDOException $e) {
@@ -109,8 +146,9 @@ $conn = null;
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>
-    Login
+    Register
   </title>
+
 
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script src="https://kit.fontawesome.com/4fa732e726.js" crossorigin="anonymous"></script>
@@ -137,13 +175,13 @@ $conn = null;
   require_once 'navbar.php';
   ?>
   <div class=" mx-auto mt-4 " style="max-width:500px;">
-    <h2 class="text-center">Login</h2>
-    <!-- <?php if (isset($error_msg)): ?>
-      <p class="bg-white p-2 text-danger   rounded ">Error:
-        <?= $error_msg ?>
-      </p>
-    <?php endif; ?> -->
+    <h2 class="text-center">Register</h2>
+
     <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+      <div class="mb-3">
+        <label for="name" class="form-label">name</label>
+        <input type="text" class="form-control" id="name" name="name" required>
+      </div>
       <div class="mb-3">
         <label for="email" class="form-label">Email</label>
         <input type="email" class="form-control" id="email" name="email" required>
@@ -153,11 +191,9 @@ $conn = null;
         <input type="password" class="form-control" id="password" name="password" required>
       </div>
 
-      <button type="submit" class="btn btn-primary" name="login">Login</button>
+      <button type="submit" class="btn btn-primary" name="register">Register</button>
     </form>
   </div>
-
-
 
 
 
