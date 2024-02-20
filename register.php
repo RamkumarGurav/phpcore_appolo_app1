@@ -1,5 +1,8 @@
 <?php
 session_start();
+//{--------------DB DETAILS--------------
+require_once 'config.php';
+//--------------------------------------------------}
 
 if (isset($_SESSION["user"])) {
   header("Location: http://localhost/xampp/MARS/myPrj/welcome.php");
@@ -8,12 +11,7 @@ if (isset($_SESSION["user"])) {
 
 
 
-//{--------------DB DETAILS--------------
-$servername = "localhost";
-$server_username = "root";
-$server_password = "";
-$dbname = "appolo_album_db";
-//--------------------------------------------------}
+
 
 
 

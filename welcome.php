@@ -1,6 +1,9 @@
 <?php
 // Start the session to access session variables
 session_start();
+// Database connection
+require_once 'config.php';
+
 
 // Check if the user is not logged in, redirect to the login page
 if (!isset($_SESSION['user'])) {
@@ -30,11 +33,7 @@ if (!isset($_SESSION["isAddAlbumFormOpen"])) {
 
 
 
-// Database connection
-$servername = "localhost";
-$server_username = "root";
-$server_password = "";
-$dbname = "appolo_album_db";
+
 
 try {
   // Create a PDO connection
