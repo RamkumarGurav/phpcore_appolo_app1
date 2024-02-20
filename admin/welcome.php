@@ -1,28 +1,28 @@
 <?php
-// Start the session to access session variables
+// // // Start the session to access session variables
 session_start();
-// Database connection
-require_once 'config.php';
+
 
 
 // Check if the user is not logged in, redirect to the login page
 if (!isset($_SESSION['user'])) {
-  header("Location: http://localhost/xampp/MARS/myPrj");
+  header("Location: http://localhost/xampp/MARS/myPrj/admin");
   exit();
 }
 
+
+$root_path = str_replace("\\", "/", dirname(__DIR__));
+include $root_path . "/admin/controller/LoginController.php";
+
+//{--------------DB connection--------------
+$conn = require $root_path . "/config.php";
+//--------------------------------------------------}
+
 // Logout logic
 if (isset($_POST['logout'])) {
-  // Destroy the session and redirect to the login page
-
-
-
-  session_destroy();
-
-  $_SESSION["toast_message"] = "Successfully Logged Out";
-  $_SESSION["toast_type"] = "text-bg-success";
-  header("Location: http://localhost/xampp/MARS/myPrj");
-  exit();
+  $controller = new LoginController;
+  $controller->logout();
+  exit;
 }
 
 // Check if the session variable for the album form is not set
@@ -34,11 +34,20 @@ if (!isset($_SESSION["isAddAlbumFormOpen"])) {
 
 
 
+// //---ROOTPATCH
+// define("ROOT_PATH", str_replace("\\", "/", dirname(__DIR__)));//E:/xampp/htdocs/xampp/MARS/myPrj
+
+
+// //{--------------DB DETAILS--------------
+// require_once ROOT_PATH . '/config.php';
+
+
+
 
 try {
   // Create a PDO connection
-  $conn = new PDO("mysql:host=$servername;dbname=$dbname", $server_username, $server_password);
-  $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+  // $conn = new PDO("mysql:host=$servername;dbname=$dbname", $server_username, $server_password);
+  // $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
   // Retrieve years and albums data from the database
   $years = findAll($conn, "year");
@@ -268,7 +277,7 @@ if (isset($_POST['add_album'])) {
       }
 
       // Move the uploaded cover image to the appropriate folder
-      $movedImageName = moveImageToFolder($album_id, $fy, $file_name, $file_tmp, "uploads", "cover_images");
+      $movedImageName = moveImageToFolder($album_id, $fy, $file_name, $file_tmp, $root_path . "/uploads", "cover_images");
 
       // Prepare data for updating the album table with the cover image name
       $data = ["cover_image" => $movedImageName];
@@ -281,7 +290,6 @@ if (isset($_POST['add_album'])) {
         // Display error message if the table update failed
         echo "failed to update the album table <br>";
       }
-
       // Set the session variable to indicate that the add album form is open
       $_SESSION["isAddAlbumFormOpen"] = 1;
 
@@ -289,7 +297,7 @@ if (isset($_POST['add_album'])) {
       $_SESSION["toast_type"] = "text-bg-success";
 
       // Redirect the user to the welcome page after successful album creation
-      header("Location: http://localhost/xampp/MARS/myPrj/welcome.php");
+      header("Location: http://localhost/xampp/MARS/myPrj/admin/welcome.php");
       exit();
     } else {
       // Display error message if album creation failed
@@ -365,7 +373,7 @@ if (isset($_POST['add_album_photo'])) {
       }
 
       // Move the uploaded image to the appropriate folder
-      $movedImageName = moveImageToFolder($inserted_album_image_id, $fy, $file_name, $file_tmp, "uploads", "album_images");
+      $movedImageName = moveImageToFolder($inserted_album_image_id, $fy, $file_name, $file_tmp, $root_path . "/uploads", "album_images");
 
       // Prepare data for updating the image table with the actual image name
       $dataForUpdate = ["album_image" => $movedImageName];
@@ -379,13 +387,12 @@ if (isset($_POST['add_album_photo'])) {
         echo "failed to update the image with id:$inserted_album_image_id <br>";
       }
     }
-
     // Set the session variable to indicate that the add album form is closed
     $_SESSION["isAddAlbumFormOpen"] = 0;
     $_SESSION["toast_message"] = "Successfully added the Album Image ";
     $_SESSION["toast_type"] = "text-bg-success";
     // Redirect the user to the welcome page after successfully adding album photos
-    header("Location: http://localhost/xampp/MARS/myPrj/welcome.php");
+    header("Location: http://localhost/xampp/MARS/myPrj/admin/welcome.php");
     exit();
   } catch (PDOException $e) {
     // Catch any PDO exceptions and display error message
@@ -426,15 +433,10 @@ if (isset($_POST['add_album_photo'])) {
 
 <body class="pb-4" style="min-height:100vh;">
 
-  <?php require_once 'navbar.php' ?>
+  <?php
+  require_once $root_path . '/admin/includes/navbar.php';
+  ?>
 
-  <!-- <div class="container mx-auto mt-4">
-    <h2>Welcome,
-      <?= $_SESSION['user']['name'] ?>
-    </h2>
-    <form action="welcome.php" method="post">
-      <button type="submit" class="btn btn-primary" name="logout">Logout</button>
-    </form> -->
 
 
   </div>

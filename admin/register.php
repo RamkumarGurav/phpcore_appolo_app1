@@ -1,18 +1,20 @@
 <?php
 session_start();
-//{--------------DB DETAILS--------------
-require_once 'config.php';
-//--------------------------------------------------}
+
 
 if (isset($_SESSION["user"])) {
-  header("Location: http://localhost/xampp/MARS/myPrj/welcome.php");
+  header("Location: http://localhost/xampp/MARS/myPrj/admin/welcome.php");
   exit();
 }
 
 
 
 
+define("ROOT_PATH", str_replace("\\", "/", dirname(__DIR__)));//E:/xampp/htdocs/xampp/MARS/myPrj
 
+//{--------------DB DETAILS--------------
+require_once ROOT_PATH . '/config.php';
+//--------------------------------------------------}
 
 
 
@@ -120,7 +122,7 @@ try {
     $_SESSION["toast_type"] = "text-bg-success";
 
     // Redirect the user to the welcome page after successfully adding album photos
-    header("Location: http://localhost/xampp/MARS/myPrj/welcome.php");
+    header("Location: http://localhost/xampp/MARS/myPrj/admin/welcome.php");
     exit();
 
 
@@ -170,7 +172,7 @@ $conn = null;
 <body>
 
   <?php
-  require_once 'navbar.php';
+  require_once ROOT_PATH . '/admin/includes/navbar.php';
   ?>
   <div class=" mx-auto mt-4 " style="max-width:500px;">
     <h2 class="text-center">Register</h2>
